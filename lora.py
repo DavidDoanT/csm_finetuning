@@ -597,17 +597,19 @@ def collate_fn(batch):
     }
 
 
-def transcribe_audio_files():
+def transcribe_audio_files(audio_dir: str):
     from transformers import pipeline
 
-    logger.info(f"Transcribing audio files in: {AUDIO_DIR}")
+    actual_audio_dir = audio_dir if audio_dir else AUDIO_DIR
+
+    logger.info(f"Transcribing audio files in: {actual_audio_dir}")
     transcriber = pipeline("automatic-speech-recognition", model=TRANSCRIPTION_MODEL)
 
     audio_text_pairs = []
     audio_files = (
-        glob.glob(os.path.join(AUDIO_DIR, "*.wav"))
-        + glob.glob(os.path.join(AUDIO_DIR, "*.mp3"))
-        + glob.glob(os.path.join(AUDIO_DIR, "*.flac"))
+        glob.glob(os.path.join(actual_audio_dir, "*.wav"))
+        + glob.glob(os.path.join(actual_audio_dir, "*.mp3"))
+        + glob.glob(os.path.join(actual_audio_dir, "*.flac"))
     )
 
     if MAX_AUDIO_FILES > 0 and len(audio_files) > MAX_AUDIO_FILES:
