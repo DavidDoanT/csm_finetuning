@@ -33,7 +33,7 @@ logger = logging.getLogger(__name__)
 
 AUDIO_DIR = "audio_data"
 OUTPUT_DIR = "finetuned_model"
-NUM_EPOCHS = 10
+DEFAULT_NUM_EPOCHS = 10
 BATCH_SIZE = 1
 GRADIENT_ACCUMULATION_STEPS = 16
 LEARNING_RATE = 1e-6
@@ -947,9 +947,11 @@ def merge_lora_weights(model: nn.Module):
     return model
 
 
-def finetune(model, dataset):
+def finetune(model, dataset, output_dir: str, num_epochs: int = DEFAULT_NUM_EPOCHS):
+    actual_output_dir = output_dir if output_dir else OUTPUT_DIR
+
     logger.info("Starting finetuning process")
-    csv_file = os.path.join(OUTPUT_DIR, "training_metrics.csv")
+    csv_file = os.path.join(actual_output_dir, "training_metrics.csv")
     with open(csv_file, "w", newline="") as f:
         writer = csv.writer(f)
         writer.writerow(
@@ -974,7 +976,7 @@ def finetune(model, dataset):
         # Update visualization
         visualizer.update(epoch, global_step, loss, learning_rate, val_loss)
 
-    visualizer = TrainingVisualizer(OUTPUT_DIR)
+    visualizer = TrainingVisualizer(actual_output_dir)
     bridging_module = BridgingModule(in_dim=2048, out_dim=1024).to(DEVICE)
 
     for param in bridging_module.parameters():
@@ -997,7 +999,7 @@ def finetune(model, dataset):
     optimizer = torch.optim.AdamW(trainable_params, lr=LEARNING_RATE)
 
     steps_per_epoch = len(dataloader)
-    num_training_steps = steps_per_epoch * NUM_EPOCHS // GRADIENT_ACCUMULATION_STEPS
+    num_training_steps = steps_per_epoch * num_epochs // GRADIENT_ACCUMULATION_STEPS
 
     from transformers import get_cosine_schedule_with_warmup
 
@@ -1023,8 +1025,8 @@ def finetune(model, dataset):
     )
     logger.info(f"Initial validation loss: {initial_val_loss:.6f}")
 
-    for epoch in range(NUM_EPOCHS):
-        logger.info(f"Starting epoch {epoch+1}/{NUM_EPOCHS}")
+    for epoch in range(num_epochs):
+        logger.info(f"Starting epoch {epoch+1}/{num_epochs}")
         progress_bar = tqdm(total=len(dataloader), desc=f"Epoch {epoch+1}")
 
         for step, batch in enumerate(dataloader):
@@ -1153,7 +1155,7 @@ def finetune(model, dataset):
             epoch_val_loss,
         )
 
-        checkpoint_dir = os.path.join(OUTPUT_DIR, f"checkpoint-epoch-{epoch+1}")
+        checkpoint_dir = os.path.join(actual_output_dir, f"checkpoint-epoch-{epoch+1}")
         os.makedirs(checkpoint_dir, exist_ok=True)
         torch.save(
             {
@@ -1175,7 +1177,7 @@ def finetune(model, dataset):
     logger.info(f"Final validation loss: {final_val_loss:.6f}")
 
     # Final checkpoint with LoRA still separate
-    final_lora_path = os.path.join(OUTPUT_DIR, "model_lora.safetensors")
+    final_lora_path = os.path.join(actual_output_dir, "model_lora.safetensors")
     torch.save(
         {
             "model_state_dict": model.state_dict(),
@@ -1196,7 +1198,7 @@ def finetune(model, dataset):
     merged_state = strip_bias_keys(model.state_dict())
 
     # Now saving the final pure state_dict with no lora_* keys
-    final_merged_path = os.path.join(OUTPUT_DIR, "model.safetensors")
+    final_merged_path = os.path.join(actual_output_dir, "model.safetensors")
     save_file(merged_state, final_merged_path)
     logger.info(f"LoRA-merged & replaced model saved to {final_merged_path}")
 
@@ -1209,13 +1211,13 @@ def finetune(model, dataset):
     return model
 
 
-def main(audio_dir: str):
+def main(audio_dir: str, output_dir: str, num_epochs: int = DEFAULT_NUM_EPOCHS):
     torch.manual_seed(SEED)
     np.random.seed(SEED)
     if torch.cuda.is_available():
         torch.cuda.manual_seed_all(SEED)
 
-    os.makedirs(OUTPUT_DIR, exist_ok=True)
+    os.makedirs(output_dir, exist_ok=True)
     torch.backends.cuda.enable_flash_sdp(True)
     if DEVICE == "cuda":
         torch.backends.cudnn.benchmark = True
@@ -1236,7 +1238,7 @@ def main(audio_dir: str):
     logger.info(f"Dataset created with {len(dataset)} samples")
 
     try:
-        finetune(model, dataset)
+        finetune(model, dataset, output_dir, num_epochs)
         logger.info("Finetuning completed successfully!")
     except Exception as e:
         logger.error(f"Error during finetuning: {e}")
@@ -1246,7 +1248,7 @@ def main(audio_dir: str):
 
         try:
             # If there's an error, at least save a partial state
-            partial_path = os.path.join(OUTPUT_DIR, "model_partial.safetensors")
+            partial_path = os.path.join(output_dir, "model_partial.safetensors")
             torch.save(model.state_dict(), partial_path)
             logger.info(f"Saved partial model to {partial_path} despite errors")
         except Exception as save_error:
