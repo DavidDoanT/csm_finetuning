@@ -1155,20 +1155,21 @@ def finetune(model, dataset, output_dir: str, num_epochs: int = DEFAULT_NUM_EPOC
             epoch_val_loss,
         )
 
-        checkpoint_dir = os.path.join(actual_output_dir, f"checkpoint-epoch-{epoch+1}")
-        os.makedirs(checkpoint_dir, exist_ok=True)
-        torch.save(
-            {
-                "model_state_dict": model.state_dict(),
-                "bridge_module_state_dict": bridging_module.state_dict(),
-                "epoch": epoch + 1,
-                "global_step": global_step,
-                "train_loss": current_loss,
-                "val_loss": epoch_val_loss,
-            },
-            os.path.join(checkpoint_dir, "model.safetensors"),
-        )
-        logger.info(f"Saved checkpoint to {checkpoint_dir}")
+        # Disable checkpointing because I don't have a lot of storage
+        # checkpoint_dir = os.path.join(actual_output_dir, f"checkpoint-epoch-{epoch+1}")
+        # os.makedirs(checkpoint_dir, exist_ok=True)
+        # torch.save(
+        #     {
+        #         "model_state_dict": model.state_dict(),
+        #         "bridge_module_state_dict": bridging_module.state_dict(),
+        #         "epoch": epoch + 1,
+        #         "global_step": global_step,
+        #         "train_loss": current_loss,
+        #         "val_loss": epoch_val_loss,
+        #     },
+        #     os.path.join(checkpoint_dir, "model.safetensors"),
+        # )
+        # logger.info(f"Saved checkpoint to {checkpoint_dir}")
 
     # Final validation loss calculation
     final_val_loss = calculate_validation_loss(
