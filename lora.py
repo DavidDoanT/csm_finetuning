@@ -1209,7 +1209,7 @@ def finetune(model, dataset):
     return model
 
 
-def main():
+def main(audio_dir: str):
     torch.manual_seed(SEED)
     np.random.seed(SEED)
     if torch.cuda.is_available():
@@ -1221,7 +1221,7 @@ def main():
         torch.backends.cudnn.benchmark = True
 
     model, text_tokenizer, audio_tokenizer = prepare_csm_model_for_training()
-    audio_text_pairs = transcribe_audio_files()
+    audio_text_pairs = transcribe_audio_files(audio_dir)
     if not audio_text_pairs:
         logger.error(f"No audio files found or transcribed in {AUDIO_DIR}")
         return
